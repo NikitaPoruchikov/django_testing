@@ -47,10 +47,7 @@ def test_pages_availability_for_anonymous_user(client, create_news):
 
 @pytest.mark.django_db
 def test_availability_for_comment_edit_and_delete(create_comment, client):
-    """
-    Проверка доступа к редактированию и удалению комментария для автора и 
-    другого пользователя.
-    """
+    """Проверка доступа к редактированию и удалению комментария."""
     author, reader = create_comment.author, User.objects.create(
         username='Другой пользователь'
     )
@@ -81,10 +78,7 @@ def test_redirect_for_anonymous_client(create_comment, client):
 
 @pytest.mark.django_db
 def test_registration_and_authentication_pages_accessibility(client):
-    """
-    Проверка доступности страниц регистрации, входа и выхода для анонимных 
-    пользователей.
-    """
+    """ Проверка доступности страниц регистрации для анонимных."""
     urls = [
         reverse('users:signup'),
         reverse('users:login'),
