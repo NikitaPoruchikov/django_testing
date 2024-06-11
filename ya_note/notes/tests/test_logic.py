@@ -3,7 +3,6 @@ from http import HTTPStatus
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
 from django.urls import reverse
-from pytils.translit import slugify
 
 from notes.models import Note
 from notes.forms import WARNING
@@ -54,17 +53,20 @@ class NoteLogicTests(TestCase):
             reverse('notes:add'), data=duplicate_form_data)
         self.assertEqual(response.status_code, HTTPStatus.OK)
         self.assertFormError(response, form='form', field='slug',
-                             errors=f'duplicate-slug-1{WARNING}')
+                             errors=WARNING)
 
-    def test_slug_is_generated_if_not_provided(self):
-        """Slug автоматически формируется, если не заполнен."""
-        form_data_without_slug = {'title': 'Новая Заметка', 'text': 'Текст'}
+    def test_cannot_create_note_with_duplicate_slug(self):
+        """Нельзя создать две заметки с одинаковым slug."""
+        Note.objects.create(title='Заметка 1', text='Текст',
+                            author=self.user, slug='duplicate-slug')
+        duplicate_form_data = {'title': 'Заметка 2',
+                               'text': 'Текст', 'slug': 'duplicate-slug'}
         response = self.auth_client.post(
-            reverse('notes:add'), data=form_data_without_slug)
-        self.assertEqual(response.status_code, HTTPStatus.FOUND)
-        new_note = Note.objects.get(title='Новая Заметка', text='Текст')
-        expected_slug = slugify(form_data_without_slug['title'])
-        self.assertEqual(new_note.slug, expected_slug)
+            reverse('notes:add'), data=duplicate_form_data)
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        expected_error = f'duplicate-slug{WARNING}'
+        self.assertFormError(response, form='form', field='slug',
+                             errors=expected_error)
 
 
 class TestNoteEditDelete(TestCase):
