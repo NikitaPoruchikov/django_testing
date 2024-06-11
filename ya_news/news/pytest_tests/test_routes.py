@@ -30,9 +30,7 @@ def create_comment(db, create_news, create_users):
 
 @pytest.mark.django_db
 def test_pages_availability_for_anonymous_user(client, create_news):
-    """
-    Проверка доступности страниц для анонимного пользователя.
-    """
+    """Проверка доступности страниц для анонимного пользователя."""
     urls = [
         reverse('news:home'),
         reverse('news:detail', kwargs={'pk': create_news.pk}),
@@ -63,10 +61,7 @@ def test_availability_for_comment_edit_and_delete(create_comment, client):
 
 @pytest.mark.django_db
 def test_redirect_for_anonymous_client(create_comment, client):
-    """
-    Проверка перенаправления анонимного пользователя на страницу логина при
-    попытке редактирования или удаления комментария.
-    """
+    """Проверка перенаправления анонимного пользователя на страницу логина."""
     login_url = reverse('users:login')
     for action in ['edit', 'delete']:
         url = reverse(f'news:{action}', kwargs={'pk': create_comment.pk})
@@ -78,7 +73,7 @@ def test_redirect_for_anonymous_client(create_comment, client):
 
 @pytest.mark.django_db
 def test_registration_and_authentication_pages_accessibility(client):
-    """ Проверка доступности страниц регистрации для анонимных."""
+    """Проверка доступности страниц регистрации для анонимных."""
     urls = [
         reverse('users:signup'),
         reverse('users:login'),
