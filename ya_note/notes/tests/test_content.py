@@ -1,50 +1,51 @@
-from django.test import TestCase
+from http import HTTPStatus
+
 from django.urls import reverse
-from django.contrib.auth import get_user_model
 
-from notes.models import Note
-
-User = get_user_model()
+from .common import CommonTestCase
+from notes.forms import NoteForm
 
 
-class TestHomePageContent(TestCase):
-    @classmethod
-    def setUpTestData(cls):
-        cls.user1 = User.objects.create_user(
-            username='user1', password='12345')
-        cls.user2 = User.objects.create_user(
-            username='user2', password='12345')
-        cls.notes_user1 = [
-            Note.objects.create(title=f'Test Note {i}', text='Test text',
-                                author=cls.user1) for i in range(5)
+class TestHome(CommonTestCase):
+    def test_notes_visibility_by_user(self):
+        """Проверка видимости заметок пользователя."""
+        test_cases = [
+            (self.user1, self.notes_user1, True),
+            (self.user2, self.notes_user1, False)
         ]
-        cls.notes_user2 = [
-            Note.objects.create(title=f'Other Note {i}', text='Other text',
-                                author=cls.user2) for i in range(5)
-        ]
+        for user, notes, should_see_notes in test_cases:
+            with self.subTest(user=user.username):
+                self.client.force_login(user)
+                response = self.client.get(reverse('notes:list'))
+                visible_notes = set(
+                    note.id for note in response.context['object_list'])
+                expected_notes = set(note.id for note in notes)
+                if should_see_notes:
+                    self.assertTrue(expected_notes <= visible_notes,
+                                    f"{user.username} should see their notes")
+                else:
+                    self.assertTrue(expected_notes.isdisjoint(visible_notes),
+                                    f"{user.username} should not see")
+                self.client.logout()
 
-    def test_notes_in_object_list(self):
-        """Проверка, что заметки user1 отображаются, а user2 - нет."""
+    def test_note_form_context(self):
+        """Проверка, что формы создания и редактирования заметки,
+        передаются в контексте и имеют правильный тип.
+        """
         self.client.force_login(self.user1)
-        response = self.client.get(reverse('notes:list'))
-        self.assertEqual(response.status_code, 200)
-        notes = response.context['object_list']
-        for note in self.notes_user1:
-            self.assertIn(note, notes)
-        for note in self.notes_user2:
-            self.assertNotIn(note, notes)
 
-    def test_create_note_form_in_context(self):
-        """Проверка, что форма создания заметки передается в контексте."""
-        self.client.force_login(self.user1)
-        response = self.client.get(reverse('notes:add'))
-        self.assertEqual(response.status_code, 200)
-        self.assertIn('form', response.context)
+        # Тестирование страницы добавления заметки
+        with self.subTest(msg="Testing add note form"):
+            add_response = self.client.get(reverse('notes:add'))
+            self.assertEqual(add_response.status_code, HTTPStatus.OK)
+            self.assertIn('form', add_response.context)
+            self.assertIsInstance(add_response.context['form'], NoteForm)
 
-    def test_edit_note_form_in_context(self):
-        """Проверка, форма редактирования заметки передается в контексте."""
-        self.client.force_login(self.user1)
-        response = self.client.get(
-            reverse('notes:edit', kwargs={'slug': self.notes_user1[0].slug}))
-        self.assertEqual(response.status_code, 200)
-        self.assertIn('form', response.context)
+        # Тестирование страницы редактирования заметки
+        with self.subTest(msg="Testing edit note form"):
+            edit_response = self.client.get(
+                reverse('notes:edit', kwargs={
+                    'slug': self.notes_user1[0].slug}))
+            self.assertEqual(edit_response.status_code, HTTPStatus.OK)
+            self.assertIn('form', edit_response.context)
+            self.assertIsInstance(edit_response.context['form'], NoteForm)

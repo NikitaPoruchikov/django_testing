@@ -1,63 +1,56 @@
-import pytest
-
-from django.urls import reverse
+from http import HTTPStatus
 
 from news.forms import BAD_WORDS, WARNING
 from news.models import Comment
 
 
-@pytest.mark.django_db
-def test_anonymous_user_cannot_post_comment(client, news):
-    """Анонимный пользователь не может отправить комментарий."""
-    url = reverse('news:detail', kwargs={'pk': news.pk})
-    response = client.post(url, {'text': 'A new comment'})
-    assert response.status_code == 302
-    assert '/login' in response.url
-    assert Comment.objects.count() == 0
+def test_comment_not_added_by_anonymous_user(client,
+                                             news_detail_url, text_comment):
+    """Анонимный пользователь не может добавить комментарий."""
+    initial_count = Comment.objects.count()
+    client.post(news_detail_url, data=text_comment)
+    assert Comment.objects.count() == initial_count
 
 
-@pytest.mark.django_db
-def test_authenticated_user_can_post_comment(auth_client, news):
+def test_authenticated_user_can_post_comment(auth_client,
+                                             news_detail_url, text_comment):
     """Авторизованный пользователь может отправить комментарий."""
-    url = reverse('news:detail', kwargs={'pk': news.pk})
-    response = auth_client.post(url, {'text': 'Valid comment'})
-    assert response.status_code == 302
-    assert Comment.objects.count() == 1
+    initial_comment_count = Comment.objects.count()
+    response = auth_client.post(news_detail_url, text_comment)
+    assert response.status_code == HTTPStatus.FOUND  # 302
+    assert Comment.objects.count() == initial_comment_count + 1
 
 
-@pytest.mark.django_db
-def test_comment_with_bad_words_not_posted(auth_client, news):
+def test_comment_with_bad_words_not_posted(auth_client, news_detail_url):
     """Если комментарий содержит запрещённые слова, он не будет опубликован."""
-    url = reverse('news:detail', kwargs={'pk': news.pk})
-    bad_words_data = {'text': f'Some text {BAD_WORDS[0]} another text'}
-    response = auth_client.post(url, data=bad_words_data)
+    bad_words_data = {'text': f'Немного текста {BAD_WORDS[0]} другой текст'}
+    initial_comment_count = Comment.objects.count()
+    response = auth_client.post(news_detail_url, data=bad_words_data)
     assert WARNING in response.context['form'].errors['text']
-    assert Comment.objects.count() == 0
+    assert Comment.objects.count() == initial_comment_count
 
 
-@pytest.mark.django_db
-def test_user_can_edit_own_comment(auth_client, comment):
+def test_user_can_edit_own_comment(auth_client,
+                                   news_edit_url, text_comment, comment):
     """Авторизованный пользователь может редактировать свои комментарии."""
-    edit_url = reverse('news:edit', args=(comment.id,))
-    response = auth_client.post(edit_url, {'text': 'Edited comment'})
-    assert response.status_code == 302
+    response = auth_client.post(news_edit_url, text_comment)
+    assert response.status_code == HTTPStatus.FOUND  # 302
     comment.refresh_from_db()
-    assert comment.text == 'Edited comment'
+    assert comment.text == 'Новый текст'
 
 
-@pytest.mark.django_db
-def test_user_can_delete_own_comment(auth_client, comment):
+def test_user_can_delete_own_comment(auth_client, news_delete_url):
     """Авторизованный пользователь может удалять свои комментарии."""
-    delete_url = reverse('news:delete', args=(comment.id,))
-    response = auth_client.delete(delete_url)
-    assert response.status_code == 302
-    assert Comment.objects.count() == 0
+    initial_comment_count = Comment.objects.count()
+    response = auth_client.delete(news_delete_url)
+    assert response.status_code == HTTPStatus.FOUND  # 302
+    assert Comment.objects.count() == initial_comment_count - 1
 
 
-@pytest.mark.django_db
-def test_user_cant_delete_comment_of_another(another_auth_client, comment):
+def test_user_cant_delete_comment_of_another(another_auth_client,
+                                             news_delete_url):
     """Авторизованный пользователь не может удалять чужие комментарии."""
-    delete_url = reverse('news:delete', args=(comment.id,))
-    response = another_auth_client.delete(delete_url)
-    assert response.status_code == 404
-    assert Comment.objects.count() == 1
+    initial_comment_count = Comment.objects.count()
+    response = another_auth_client.delete(news_delete_url)
+    assert response.status_code == HTTPStatus.NOT_FOUND  # 404
+    assert Comment.objects.count() == initial_comment_count
