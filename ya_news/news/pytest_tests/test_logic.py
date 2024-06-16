@@ -4,6 +4,7 @@ from news.forms import BAD_WORDS, WARNING
 from news.models import Comment
 from .constant import TEXT_COMMENT
 
+
 def test_comment_not_added_by_anonymous_user(client,
                                              news_detail_url):
     """Анонимный пользователь не может добавить комментарий."""
