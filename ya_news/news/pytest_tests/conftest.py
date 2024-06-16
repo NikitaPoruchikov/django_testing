@@ -8,8 +8,7 @@ from news.models import Comment, News
 
 
 @pytest.fixture
-def create_news_user(db, user):
-    """Создает новость с автором user."""
+def create_news_user(db):
     return News.objects.create(title='Заголовок', text='Текст', author=user)
 
 
