@@ -2,21 +2,21 @@ from http import HTTPStatus
 
 from news.forms import BAD_WORDS, WARNING
 from news.models import Comment
-
+from .constant import TEXT_COMMENT
 
 def test_comment_not_added_by_anonymous_user(client,
-                                             news_detail_url, text_comment):
+                                             news_detail_url):
     """Анонимный пользователь не может добавить комментарий."""
     initial_count = Comment.objects.count()
-    client.post(news_detail_url, data=text_comment)
+    client.post(news_detail_url, data=TEXT_COMMENT)
     assert Comment.objects.count() == initial_count
 
 
 def test_authenticated_user_can_post_comment(auth_client,
-                                             news_detail_url, text_comment):
+                                             news_detail_url):
     """Авторизованный пользователь может отправить комментарий."""
     initial_comment_count = Comment.objects.count()
-    response = auth_client.post(news_detail_url, text_comment)
+    response = auth_client.post(news_detail_url, TEXT_COMMENT)
     assert response.status_code == HTTPStatus.FOUND  # 302
     assert Comment.objects.count() == initial_comment_count + 1
 
@@ -31,9 +31,9 @@ def test_comment_with_bad_words_not_posted(auth_client, news_detail_url):
 
 
 def test_user_can_edit_own_comment(auth_client,
-                                   news_edit_url, text_comment, comment):
+                                   news_edit_url, comment):
     """Авторизованный пользователь может редактировать свои комментарии."""
-    response = auth_client.post(news_edit_url, text_comment)
+    response = auth_client.post(news_edit_url, TEXT_COMMENT)
     assert response.status_code == HTTPStatus.FOUND  # 302
     comment.refresh_from_db()
     assert comment.text == 'Новый текст'

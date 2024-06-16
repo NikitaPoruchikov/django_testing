@@ -1,60 +1,53 @@
 from http import HTTPStatus
 
 import pytest
-from pytest_lazyfixture import lazy_fixture
-
-from django.urls import reverse
 
 
-@pytest.mark.parametrize("url", [
-    lazy_fixture('home_url'),
-    lazy_fixture('login_url'),
-    lazy_fixture('logout_url'),
-    lazy_fixture('signup_url')
-])
-def test_single_page_availability_for_anonymous_user(client, url):
-    """Главная страница, cтраницы регистрации пользователей,
-    входа в учётную запись и выхода из неё доступны анонимным пользователям.
+# Определяем URL на уровне файла
+HOME_URL = pytest.lazy_fixture('home_url')
+LOGIN_URL = pytest.lazy_fixture('login_url')
+LOGOUT_URL = pytest.lazy_fixture('logout_url')
+SIGNUP_URL = pytest.lazy_fixture('signup_url')
+NEWS_DETAIL_URL = pytest.lazy_fixture('news_detail_url')
+COMMENT_EDIT_URL = pytest.lazy_fixture('news_edit_url')
+COMMENT_DELETE_URL = pytest.lazy_fixture('news_delete_url')
+
+# Определяем параметры для тестов на уровне файла
+PUBLIC_URLS = [HOME_URL, LOGIN_URL, LOGOUT_URL, SIGNUP_URL, NEWS_DETAIL_URL]
+
+EDIT_DELETE_ACCESS_PARAMS = [
+    ('auth_client', COMMENT_EDIT_URL, HTTPStatus.OK),
+    ('auth_client', COMMENT_DELETE_URL, HTTPStatus.OK),
+    ('another_auth_client', COMMENT_EDIT_URL, HTTPStatus.NOT_FOUND),
+    ('another_auth_client', COMMENT_DELETE_URL, HTTPStatus.NOT_FOUND),
+    (None, COMMENT_EDIT_URL, HTTPStatus.FOUND),
+    (None, COMMENT_DELETE_URL, HTTPStatus.FOUND),
+]
+
+
+@pytest.mark.parametrize("url", PUBLIC_URLS)
+def test_public_pages_availability_for_anonymous_user(client, url):
+    """Публичные страницы (главная, регистрация, вход, выход, новость)
+    доступны анонимным пользователям.
     """
     response = client.get(url)
     assert response.status_code == HTTPStatus.OK
 
 
-def test_detail_page_for_anonymous_user(client, news_detail_url):
-    """Страница отдельной новости доступна анонимному пользователю."""
-    url = news_detail_url
-    response = client.get(url)
-    assert response.status_code == HTTPStatus.OK
-
-
-def test_availability_for_comment_edit_and_delete(news_with_comments,
-                                                  another_user, client):
-    news, author = news_with_comments
-    """Страницы удаления и редактирования комментария доступны
-       автору комментария.
-       Авторизованный пользователь не может зайти на страницы редактирования
-       или удаления чужих комментариев (возвращается ошибка 404)."""
-    statuses = {author: HTTPStatus.OK, another_user: HTTPStatus.NOT_FOUND}
-
-    for user, status in statuses.items():
-        client.force_login(user)
-        for action in ['edit', 'delete']:
-            url = reverse(f'news:{action}', kwargs={'pk': news.pk})
-            response = client.get(url)
-            assert response.status_code == status
-
-
-@pytest.mark.parametrize(
-    "url", [
-        lazy_fixture('news_edit_url'),
-        lazy_fixture('news_delete_url'),
-    ])
-def test_redirect_for_anonymous_client(client, url):
-    """При попытке перейти на страницу редактирования или удаления комментария
-    анонимный пользователь перенаправляется на страницу авторизации.
+@pytest.mark.parametrize("user_fixture, url_func, expected_status",
+                         EDIT_DELETE_ACCESS_PARAMS)
+def test_note_edit_delete_access(client, request, user_fixture,
+                                 url_func, expected_status, login_url):
+    """Проверка доступа к страницам редактирования и удаления комментария
+    для различных пользователей.
     """
-    login_url = reverse('users:login')
-    expected_redirect_url = f'{login_url}?next={url}'
-    response = client.get(url)
-    assert response.status_code == HTTPStatus.FOUND
-    assert response.url == expected_redirect_url
+    if user_fixture:
+        client = request.getfixturevalue(user_fixture)
+    if user_fixture is None:
+        expected_redirect_url = f'{login_url}?next={url_func}'
+        response = client.get(url_func)
+        assert response.status_code == HTTPStatus.FOUND
+        assert response.url == expected_redirect_url
+    else:
+        response = client.get(url_func)
+        assert response.status_code == expected_status

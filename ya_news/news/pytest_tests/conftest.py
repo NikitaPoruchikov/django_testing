@@ -1,4 +1,5 @@
 import pytest
+
 from django.test import Client
 from django.contrib.auth.models import User
 from django.urls import reverse
@@ -7,13 +8,8 @@ from news.models import Comment, News
 
 
 @pytest.fixture
-def text_comment():
-    """Новый текст для комментария."""
-    return {'text': 'Новый текст'}
-
-
-@pytest.fixture
-def create_news_user(db):
+def create_news_user(db, user):
+    """Создает новость с автором user."""
     return News.objects.create(title='Заголовок', text='Текст', author=user)
 
 
@@ -95,12 +91,6 @@ def another_auth_client(auth_client, another_user):
 
 
 @pytest.fixture
-def news_list_url():
-    """Возвращает URL для списка новостей."""
-    return reverse('news:list')
-
-
-@pytest.fixture
 def news_detail_url(news):
     """Возвращает URL для детального просмотра новости, требует объект news."""
     return reverse('news:detail', kwargs={'pk': news.pk})
@@ -138,9 +128,11 @@ def home_url():
 
 @pytest.fixture
 def logout_url():
+    """Возвращает URL страницы выхода."""
     return reverse('users:logout')
 
 
 @pytest.fixture
 def signup_url():
+    """Возвращает URL страницы регистрации."""
     return reverse('users:signup')
