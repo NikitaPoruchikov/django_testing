@@ -2,52 +2,50 @@ from http import HTTPStatus
 
 import pytest
 
-
 # Определяем URL на уровне файла
 HOME_URL = pytest.lazy_fixture('home_url')
 LOGIN_URL = pytest.lazy_fixture('login_url')
 LOGOUT_URL = pytest.lazy_fixture('logout_url')
 SIGNUP_URL = pytest.lazy_fixture('signup_url')
-NEWS_DETAIL_URL = pytest.lazy_fixture('news_detail_url')
-COMMENT_EDIT_URL = pytest.lazy_fixture('news_edit_url')
-COMMENT_DELETE_URL = pytest.lazy_fixture('news_delete_url')
+DETAIL_NEWS_URL = pytest.lazy_fixture('news_detail_url')
+EDIT_COMMENT_URL = pytest.lazy_fixture('news_edit_url')
+DELETE_COMMENT_URL = pytest.lazy_fixture('news_delete_url')
+
+# Определяем клиентов на уровне файла
+ANONYMOUS_CLIENT = pytest.lazy_fixture('anonymous_client')
+AUTHOR_CLIENT = pytest.lazy_fixture('auth_client')
+NOT_AUTHOR_CLIENT = pytest.lazy_fixture('not_author_client')
 
 # Определяем параметры для тестов на уровне файла
-PUBLIC_URLS = [HOME_URL, LOGIN_URL, LOGOUT_URL, SIGNUP_URL, NEWS_DETAIL_URL]
+URL_ACCESS_PARAMS = [
+    (ANONYMOUS_CLIENT, HTTPStatus.OK, HOME_URL),
+    (ANONYMOUS_CLIENT, HTTPStatus.OK, DETAIL_NEWS_URL),
+    (ANONYMOUS_CLIENT, HTTPStatus.OK, LOGIN_URL),
+    (ANONYMOUS_CLIENT, HTTPStatus.OK, LOGOUT_URL),
+    (ANONYMOUS_CLIENT, HTTPStatus.OK, SIGNUP_URL),
+    (AUTHOR_CLIENT, HTTPStatus.OK, DELETE_COMMENT_URL),
+    (AUTHOR_CLIENT, HTTPStatus.OK, EDIT_COMMENT_URL),
+    (NOT_AUTHOR_CLIENT, HTTPStatus.NOT_FOUND, DELETE_COMMENT_URL),
+    (NOT_AUTHOR_CLIENT, HTTPStatus.NOT_FOUND, EDIT_COMMENT_URL),
+]
 
-EDIT_DELETE_ACCESS_PARAMS = [
-    ('auth_client', COMMENT_EDIT_URL, HTTPStatus.OK),
-    ('auth_client', COMMENT_DELETE_URL, HTTPStatus.OK),
-    ('another_auth_client', COMMENT_EDIT_URL, HTTPStatus.NOT_FOUND),
-    ('another_auth_client', COMMENT_DELETE_URL, HTTPStatus.NOT_FOUND),
-    (None, COMMENT_EDIT_URL, HTTPStatus.FOUND),
-    (None, COMMENT_DELETE_URL, HTTPStatus.FOUND),
+REDIRECT_PARAMS = [
+    (ANONYMOUS_CLIENT, DELETE_COMMENT_URL),
+    (ANONYMOUS_CLIENT, EDIT_COMMENT_URL),
 ]
 
 
-@pytest.mark.parametrize("url", PUBLIC_URLS)
-def test_public_pages_availability_for_anonymous_user(client, url):
-    """Публичные страницы (главная, регистрация, вход, выход, новость)
-    доступны анонимным пользователям.
-    """
+@pytest.mark.parametrize('client, status, url', URL_ACCESS_PARAMS)
+def test_page_access(client, status, url):
+    """Проверка доступа к страницам для различных пользователей."""
     response = client.get(url)
-    assert response.status_code == HTTPStatus.OK
+    assert response.status_code == status
 
 
-@pytest.mark.parametrize("user_fixture, url_func, expected_status",
-                         EDIT_DELETE_ACCESS_PARAMS)
-def test_note_edit_delete_access(client, request, user_fixture,
-                                 url_func, expected_status, login_url):
-    """Проверка доступа к страницам редактирования и удаления комментария
-    для различных пользователей.
-    """
-    if user_fixture:
-        client = request.getfixturevalue(user_fixture)
-    if user_fixture is None:
-        expected_redirect_url = f'{login_url}?next={url_func}'
-        response = client.get(url_func)
-        assert response.status_code == HTTPStatus.FOUND
-        assert response.url == expected_redirect_url
-    else:
-        response = client.get(url_func)
-        assert response.status_code == expected_status
+@pytest.mark.parametrize('client, url', REDIRECT_PARAMS)
+def test_redirect_for_anonymous(client, url, login_url):
+    """Проверка редиректа для анонимных пользователей на страницу логина."""
+    expected_redirect_url = f'{login_url}?next={url}'
+    response = client.get(url)
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.url == expected_redirect_url

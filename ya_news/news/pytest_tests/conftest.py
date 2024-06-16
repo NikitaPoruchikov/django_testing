@@ -74,11 +74,11 @@ def comment(news, user):
 
 
 @pytest.fixture
-def auth_client(client, user):
-    """Авторизованный клиент для имитации действий пользователя в системе."""
-    client = Client()
-    client.force_login(user)
-    return client
+def auth_client(db, user):
+    """Создает клиент с авторизацией пользователя."""
+    client_instance = Client()
+    client_instance.force_login(user)
+    return client_instance
 
 
 @pytest.fixture
@@ -87,6 +87,21 @@ def another_auth_client(auth_client, another_user):
     auth_client = Client()
     auth_client.force_login(another_user)
     return auth_client
+
+
+@pytest.fixture
+def anonymous_client():
+    """Клиент для имитации действий анонимного пользователя."""
+    return Client()
+
+
+@pytest.fixture
+def not_author_client(db):
+    """Создание клиента, который не является автором."""
+    user = User.objects.create_user(username='not_author', password='password')
+    client = Client()
+    client.force_login(user)
+    return client
 
 
 @pytest.fixture
