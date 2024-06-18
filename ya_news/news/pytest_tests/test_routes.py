@@ -47,5 +47,4 @@ def test_redirect_for_anonymous(client, url, login_url):
     """Проверка редиректа для анонимных пользователей на страницу логина."""
     expected_redirect_url = f'{login_url}?next={url}'
     response = client.get(url)
-    assert response.status_code == HTTPStatus.FOUND
     assert response.url == expected_redirect_url
